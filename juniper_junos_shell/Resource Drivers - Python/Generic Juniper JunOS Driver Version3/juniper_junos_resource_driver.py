@@ -13,6 +13,27 @@ from cloudshell.networking.networking_resource_driver_interface import Networkin
 from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
 from cloudshell.shell.core.driver_utils import GlobalLock
 
+import json
+import re
+import telnetlib
+
+from pyVmomi import vim # will always show up as unresolved in PyCharm
+from pyVim.connect import SmartConnect, Disconnect
+import ssl
+
+from cloudshell.core.logger.qs_logger import get_qs_logger
+from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
+from cloudshell.shell.core.context import InitCommandContext, ResourceCommandContext, AutoLoadDetails, AutoLoadResource, \
+    AutoLoadAttribute, AutoLoadCommandContext
+from time import sleep, strftime
+import pickle
+from cloudshell.api.cloudshell_api import CloudShellAPISession, SetConnectorRequest, AttributeNameValue, \
+    ApiEditAppRequest, ResourceInfoDto, ResourceAttributesUpdateRequest
+
+def log(s):
+    with open(r'c:\programdata\qualisystems\vmx.log', 'a') as f:
+        f.write(s + '\n')
+
 
 class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriverInterface, GlobalLock):
     SUPPORTED_OS = [r'[Jj]uniper']
@@ -157,6 +178,16 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         :rtype: str
         """
 
+        log('get_inventory called')
+        vfpp = context.resource.attributes.get('VFP Card App Name Prefix')
+        if vfpp and vfpp != 'DONE':
+            log('get_inventory 1')
+            rv = AutoLoadDetails()
+            rv.resources = []
+            rv.attributes = []
+            return rv
+        log('get_inventory 2')
+
         logger = get_logger_with_thread_id(context)
         api = get_api(context)
         autoload_operations = AutoloadRunner(cli=self._cli, logger=logger, context=context, api=api,
@@ -283,3 +314,314 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         api = get_api(context)
         state_operations = StateRunner(cli=self._cli, logger=logger, api=api, context=context)
         return state_operations.shutdown()
+
+    def connect_child_resources(self, context):
+        log('Connect child resources called')
+        vfp_app_prefix = context.resource.attributes.get('VFP Card App Name Prefix')
+        if not vfp_app_prefix:
+            return
+        ncards = int(context.resource.attributes.get('Number of VFP Cards', '0'))
+        if not ncards:
+            return
+        # logger = get_logger_with_thread_id(context)
+        resid = context.reservation.reservation_id
+        api = CloudShellAPISession(host=context.connectivity.server_address, token_id=context.connectivity.admin_auth_token, domain="Global")
+
+        rd = api.GetReservationDetails(resid).ReservationDescription
+
+
+
+        resource2pos = {}
+        for pos in api.GetReservationResourcesPositions(resid).ResourceDiagramLayouts:
+            resource2pos[pos.ResourceName] = (pos.X, pos.Y)
+
+        vfp_name_template = context.resource.name + '_vfp%d'
+
+        x0, y0 = resource2pos[context.resource.name]
+        todeploy = []
+        log('ncards = %d' % ncards)
+        for i in range(ncards):
+            vfp_app_name = '%s-card%d' % (vfp_app_prefix, i)
+            log('add app %s' % vfp_app_name)
+            api.AddAppToReservation(resid, vfp_app_name, positionX=x0, positionY=y0+100+i*100)
+            an = vfp_name_template % i
+            todeploy.append(an)
+            log('rename %s to %s' % (vfp_app_name, an))
+            api.EditAppsInReservation(resid, [ApiEditAppRequest(vfp_app_name, an, 'auto generated vfp %d' % i, None, None)])
+
+        for td in todeploy:
+            api.WriteMessageToReservationOutput(resid, 'Deploying vMX card %s' % td)
+            api.DeployAppToCloudProvider(resid, td, [])
+        # # api.DeployAppToCloudProviderBulk(resid, todeploy, tdinputs)
+
+        vmxip = context.resource.attributes.get('Management IP', 'dhcp')
+        if vmxip.lower() == 'dhcp':
+            ipcommand = "set interfaces fxp0.0 family inet dhcp"
+        else:
+            if '/' not in vmxip:
+                if vmxip.startswith('172.16.'):
+                    vmxip += '/16'
+                else:
+                    vmxip += '/24'
+            ipcommand = "set interfaces fxp0.0 family inet address %s" % vmxip
+        log('Connect child resources 5')
+
+        telnetpool = {
+            'isolation': 'Exclusive',
+            'reservationId': resid,
+            'poolId': 'vmxconsoleport',
+            'ownerId': '',
+            'type': 'NextAvailableNumericFromRange',
+            'requestedRange': {
+                'start': 9300,
+                'end': 9330
+            }
+        }
+        log('Connect child resources 5a')
+
+        telnetport = int(api.CheckoutFromPool(json.dumps(telnetpool)).Items[0])
+        # telnetport = 9300
+
+        log('Connect child resources 5b')
+
+        cpd = api.GetResourceDetails(api.GetResourceDetails(context.resource.name).VmDetails.CloudProviderFullName)
+        vcenterip = cpd.Address
+        vcenteruser = [x.Value for x in cpd.ResourceAttributes if x.Name == 'User'][0]
+        vcenterpassword = api.DecryptPassword([x.Value for x in cpd.ResourceAttributes if x.Name == 'Password'][0]).Value
+
+        sslContext = ssl.create_default_context()
+        sslContext.check_hostname = False
+        sslContext.verify_mode = ssl.CERT_NONE
+
+        log('connecting to vCenter %s' % vcenterip)
+        si = SmartConnect(host=vcenterip, user=vcenteruser, pwd=vcenterpassword, sslContext=sslContext)
+        log('connected')
+        content = si.RetrieveContent()
+        vm = None
+        for c in content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True).view:
+            if c.name == context.resource.name:
+                vm = c
+                break
+
+        esxi_ip = vm.runtime.host.name
+        log('adding serial port to %s' % context.resource.name)
+        spec = vim.vm.ConfigSpec()
+        serial_spec = vim.vm.device.VirtualDeviceSpec()
+        serial_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        serial_spec.device = vim.vm.device.VirtualSerialPort()
+        serial_spec.device.yieldOnPoll = True
+        serial_spec.device.backing = vim.vm.device.VirtualSerialPort.URIBackingInfo()
+        serial_spec.device.backing.serviceURI = 'telnet://:%d' % telnetport
+        serial_spec.device.backing.direction = 'server'
+        spec.deviceChange.append(serial_spec)
+        vm.ReconfigVM_Task(spec=spec)
+        log('added serial port')
+        Disconnect(si)
+
+        cardaddrstr2cardvmname = {}
+        cardvms = []
+        rd = api.GetReservationDetails(resid).ReservationDescription
+        for r in rd.Resources:
+            for i in range(ncards):
+                if (vfp_name_template % i) in r.Name:
+                    cardaddrstr2cardvmname[str(i)] = r.Name
+                    cardvms.append(r.Name)
+        log('cardaddrstr2cardvmname: %s' % cardaddrstr2cardvmname)
+
+        connector_requests = []
+        removeconnectors = []
+        bb = ''
+        for c in rd.Connectors:
+            bb += c.Source + ' -- ' + c.Target + '\n'
+        log(bb)
+        for c in rd.Connectors:
+            if context.resource.name == c.Source:
+                for a in c.Attributes:
+                    if a.Name == 'Requested Source vNIC Name' and a.Value:
+                        if 'ge-' in a.Value:
+                            vfpno = int(a.Value.replace('ge-', '').split('-')[0])
+                            portno = int(a.Value.replace('ge-', '').split('-')[-1]) + 1
+                            # connect to the root until the subresource connector bug is fixed
+                            # connector_requests.append((cardaddrstr2cardvmname[str(vfpno)], portno, c.Target, 0, a.Value))
+                            connector_requests.append((cardaddrstr2cardvmname[str(vfpno)] + '/' + a.Value, 0, c.Target, 0, ''))
+                            removeconnectors.append((c.Source, c.Target))
+            if context.resource.name == c.Target:
+                for a in c.Attributes:
+                    if a.Name == 'Requested Target vNIC Name' and a.Value:
+                        if 'ge-' in a.Value:
+                            vfpno = int(a.Value.replace('ge-', '').split('-')[0])
+                            portno = int(a.Value.replace('ge-', '').split('-')[-1])
+                            # connect to the root until the subresource connector bug is fixed
+                            # connector_requests.append((c.Source, 0, cardaddrstr2cardvmname[str(vfpno)], portno, a.Value))
+                            connector_requests.append((c.Source, 0, cardaddrstr2cardvmname[str(vfpno)] + '/' + a.Value, 0, ''))
+                            removeconnectors.append((c.Source, c.Target))
+
+        log('connector requests: %s' % connector_requests)
+        internal_connector_requests = []
+        api.AddServiceToReservation(resid, 'VLAN Auto', 'vMX internal network', [])
+        api.SetReservationServicePosition(resid, 'vMX internal network', x0-300, y0)
+        internal_connector_requests.append((context.resource.name, 2, 'vMX internal network', 0, 'br-int'))
+        for cardvm in cardvms:
+            internal_connector_requests.append((cardvm, 2, 'vMX internal network', 0, 'br-int'))
+        log('internal connector requests: %s' % internal_connector_requests)
+
+        api.SetConnectorsInReservation(resid, [
+            SetConnectorRequest(source, target, 'bi', alias)
+            for source, _, target, _, alias in internal_connector_requests
+        ])
+        for source, sourcenic, target, targetnic, _ in internal_connector_requests:
+            tc = []
+            if sourcenic > 0:
+                tc.append(AttributeNameValue('Requested Source vNIC Name', str(sourcenic)))
+            if targetnic > 0:
+                tc.append(AttributeNameValue('Requested Target vNIC Name', str(targetnic)))
+            # if netid > 0:
+            #     tc.append(AttributeNameValue('Selected Network', str(targetnic)))
+
+            api.SetConnectorAttributes(resid, source, target, tc)
+            api.WriteMessageToReservationOutput(resid, 'Adding connector %s.%s &lt;-&gt; %s.%s' % (source, sourcenic, target, targetnic))
+
+        log('Connect child resources 4')
+
+        endpoints = []
+        for x in internal_connector_requests:
+            source, _, target, _, _ = x
+            endpoints.append(source)
+            endpoints.append(target)
+        log('connecting endpoints %s' % endpoints)
+
+        api.ConnectRoutesInReservation(resid, endpoints, 'bi')
+        log('Connect child resources 5')
+
+        # rootpassword = api.DecryptPassword(context.resource.attributes.get('Root Password', '')).Value
+        username = context.resource.attributes.get('User', 'user')
+        userpassword = api.DecryptPassword(context.resource.attributes.get('Password', '')).Value
+        rootpassword = userpassword
+        userfullname = context.resource.attributes.get('User Full Name', username)
+        log('Connect child resources 6')
+
+        command_patterns = [
+            ("", "login:"),
+            ("root", "#"),
+            ("cli", ">"),
+            ("configure", "#"),
+            (ipcommand, "#"),
+            ("commit", "#"),
+            ("set system root-authentication plain-text-password", "password:"),
+            (rootpassword, "password:"),
+            (rootpassword, "#"),
+            ("commit", "#"),
+            ("edit system services ssh", "#"),
+            ("set root-login allow", "#"),
+            ("commit", "#"),
+            ("exit", "#"),
+            ("edit system login", "#"),
+            ("set user %s class super-user" % username, "#"),
+            ("set user %s full-name \"%s\"" % (username, userfullname), "#"),
+            ("set user %s authentication plain-text-password" % username, "password:"),
+            (userpassword, "password:"),
+            (userpassword, "#"),
+            ("commit", "#"),
+            ("exit", "#"),
+            ("exit", ">"),
+            ("SLEEP", "10"),
+            ("show interfaces fxp0.0 terse", ">")
+        ]
+        api.WriteMessageToReservationOutput(resid, 'Powering on %s' % context.resource.name)
+        api.ExecuteResourceConnectedCommand(resid, context.resource.name, 'PowerOn', 'power')
+        api.WriteMessageToReservationOutput(resid, 'Waiting 60 seconds for kernel load')
+        log('Connect child resources 7')
+
+        sleep(60)
+        api.WriteMessageToReservationOutput(resid, 'Configuring vMX over serial port: telnet://%s:%d. User %s (%s). IP: %s' % (esxi_ip, telnetport, userfullname, username, vmxip))
+        log('Connect child resources 8')
+
+        tn = telnetlib.Telnet(esxi_ip, telnetport)
+        ts = ''
+        for command, pattern in command_patterns:
+            if command=='SLEEP':
+                sleep(int(pattern))
+                continue
+            tn.write(command + '\n')
+            s = ''
+            while True:
+                t = tn.read_until(pattern, timeout=5)
+                tt = re.sub(r'[^-_0-9A-Za-z:;,.@/"(){}\[\] \t\r\n]', '_', t)[0:500]
+                if tt:
+                    api.WriteMessageToReservationOutput(resid, tt)
+                s += t
+                if pattern in s:
+                    ts += s
+                    break
+            sleep(1)
+        ips = re.findall(r'\D(\d+[.]\d+[.]\d+[.]\d+)/', ts)
+
+        vmxeip = ips[-1]
+        log('Connect child resources 9')
+
+        for cardvm in cardvms:
+            api.WriteMessageToReservationOutput(resid, 'Powering on %s' % cardvm)
+            api.ExecuteResourceConnectedCommand(resid, cardvm, 'PowerOn', 'power')
+        log('Connect child resources 10')
+
+        while True:
+            tn.write('show interfaces ge* terse\n')
+            s = tn.read_until('>')
+            api.WriteMessageToReservationOutput(resid, re.sub(r'[^-_0-9A-Za-z:;,.@/"(){}\[\] \t\r\n]', '_', s)[0:800])
+            missing = False
+            for i in range(ncards):
+                if ('ge-%d/' % i) not in s:
+                    api.WriteMessageToReservationOutput(resid, 'Still waiting for card %d' % i)
+                    missing = True
+            if not missing:
+                break
+            sleep(5)
+
+        cardno2nics = {}
+        for interface in re.findall(r'ge-[0-9]*/[0-9]*/[0-9]*', s):
+            cardno, _, nic = interface.replace('ge-', '').split('/')
+            if cardno not in cardno2nics:
+                cardno2nics[cardno] = []
+            cardno2nics[cardno].append(nic)
+
+        tocreate = []
+        attrupdates = []
+        for cardno, nics in cardno2nics.iteritems():
+            for nic in nics:
+                tocreate.append(ResourceInfoDto('Port',
+                                                'vMX Port',
+                                                'ge-%s-0-%s' % (cardno, nic),
+                                                'ge-%s-0-%s' % (cardno, nic),
+                                                '',
+                                                cardaddrstr2cardvmname[cardno],
+                                                ''))
+                attrupdates.append(ResourceAttributesUpdateRequest('%s/ge-%s-0-%s' % (cardaddrstr2cardvmname[cardno], cardno, nic), [
+                    AttributeNameValue('vMX Port Address', 'ge-%s-0-%s' % (cardno, nic)),
+                    AttributeNameValue('Requested vNIC Name', str(int(nic) + 1)),
+                ]))
+        api.CreateResources(tocreate)
+        api.SetAttributesValues(attrupdates)
+
+        for c in removeconnectors:
+            api.RemoveConnectorsFromReservation(resid, [c[0], c[1]])
+
+        api.SetConnectorsInReservation(resid, [
+            SetConnectorRequest(source, target, 'bi', alias)
+            for source, _, target, _, alias in connector_requests
+        ])
+        for source, sourcenic, target, targetnic, _ in connector_requests:
+            tc = []
+            if sourcenic > 0:
+                tc.append(AttributeNameValue('Requested Source vNIC Name', str(sourcenic)))
+            if targetnic > 0:
+                tc.append(AttributeNameValue('Requested Target vNIC Name', str(targetnic)))
+            # if netid > 0:
+            #     tc.append(AttributeNameValue('Selected Network', str(targetnic)))
+            if tc:
+                api.SetConnectorAttributes(resid, source, target, tc)
+            api.WriteMessageToReservationOutput(resid, 'Adding connector %s.%s &lt;-&gt; %s.%s' % (source, sourcenic, target, targetnic))
+
+        api.WriteMessageToReservationOutput(resid, 'vMX IP is %s' % vmxeip)
+        api.UpdateResourceAddress(context.resource.name, vmxeip)
+        api.SetAttributeValue(context.resource.name, 'VFP Card App Name Prefix', 'DONE')
+        api.AutoLoad(context.resource.name)

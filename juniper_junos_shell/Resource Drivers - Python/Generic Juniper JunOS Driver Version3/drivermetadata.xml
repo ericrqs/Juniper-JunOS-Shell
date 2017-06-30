@@ -9,6 +9,8 @@
                     <Parameter Name="custom_command" Type="String" Mandatory="True" DefaultValue="" Description=""/>
                 </Parameters>
             </Command>
+            <Command Description="" DisplayName="Connect Child Resources" Name="connect_child_resources" />
+
             <Command Name="ApplyConnectivityChanges" DisplayName="ApplyConnectivityChanges" Tags="allow_unreserved">
                 <Parameters>
                     <Parameter Name="request" Type="String" Mandatory="True" DefaultValue="" Description=""/>
