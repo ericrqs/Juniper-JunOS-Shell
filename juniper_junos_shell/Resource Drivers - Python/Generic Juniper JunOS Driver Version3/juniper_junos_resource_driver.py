@@ -327,10 +327,6 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         resid = context.reservation.reservation_id
         api = CloudShellAPISession(host=context.connectivity.server_address, token_id=context.connectivity.admin_auth_token, domain="Global")
 
-        rd = api.GetReservationDetails(resid).ReservationDescription
-
-
-
         resource2pos = {}
         for pos in api.GetReservationResourcesPositions(resid).ResourceDiagramLayouts:
             resource2pos[pos.ResourceName] = (pos.X, pos.Y)
@@ -428,48 +424,20 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                     cardvms.append(r.Name)
         log('cardaddrstr2cardvmname: %s' % cardaddrstr2cardvmname)
 
-        connector_requests = []
-        removeconnectors = []
-        bb = ''
-        for c in rd.Connectors:
-            bb += c.Source + ' -- ' + c.Target + '\n'
-        log(bb)
-        for c in rd.Connectors:
-            if context.resource.name == c.Source:
-                for a in c.Attributes:
-                    if a.Name == 'Requested Source vNIC Name' and a.Value:
-                        if 'ge-' in a.Value:
-                            vfpno = int(a.Value.replace('ge-', '').split('-')[0])
-                            portno = int(a.Value.replace('ge-', '').split('-')[-1]) + 1
-                            # connect to the root until the subresource connector bug is fixed
-                            # connector_requests.append((cardaddrstr2cardvmname[str(vfpno)], portno, c.Target, 0, a.Value))
-                            connector_requests.append((cardaddrstr2cardvmname[str(vfpno)] + '/' + a.Value, 0, c.Target, 0, ''))
-                            removeconnectors.append((c.Source, c.Target))
-            if context.resource.name == c.Target:
-                for a in c.Attributes:
-                    if a.Name == 'Requested Target vNIC Name' and a.Value:
-                        if 'ge-' in a.Value:
-                            vfpno = int(a.Value.replace('ge-', '').split('-')[0])
-                            portno = int(a.Value.replace('ge-', '').split('-')[-1])
-                            # connect to the root until the subresource connector bug is fixed
-                            # connector_requests.append((c.Source, 0, cardaddrstr2cardvmname[str(vfpno)], portno, a.Value))
-                            connector_requests.append((c.Source, 0, cardaddrstr2cardvmname[str(vfpno)] + '/' + a.Value, 0, ''))
-                            removeconnectors.append((c.Source, c.Target))
 
-        log('connector requests: %s' % connector_requests)
         internal_connector_requests = []
         api.AddServiceToReservation(resid, 'VLAN Auto', 'vMX internal network', [])
-        api.SetReservationServicePosition(resid, 'vMX internal network', x0-300, y0)
-        internal_connector_requests.append((context.resource.name, 2, 'vMX internal network', 0, 'br-int'))
+        api.SetReservationServicePosition(resid, 'vMX internal network', x0-100, y0-150)
+        internal_connector_requests.append((context.resource.name, 2, 'vMX internal network', 0, 'br-int', {}))
         for cardvm in cardvms:
-            internal_connector_requests.append((cardvm, 2, 'vMX internal network', 0, 'br-int'))
+            internal_connector_requests.append((cardvm, 2, 'vMX internal network', 0, 'br-int', {}))
         log('internal connector requests: %s' % internal_connector_requests)
 
         api.SetConnectorsInReservation(resid, [
             SetConnectorRequest(source, target, 'bi', alias)
-            for source, _, target, _, alias in internal_connector_requests
+            for source, _, target, _, alias, _ in internal_connector_requests
         ])
-        for source, sourcenic, target, targetnic, _ in internal_connector_requests:
+        for source, sourcenic, target, targetnic, _, name2value in internal_connector_requests:
             tc = []
             if sourcenic > 0:
                 tc.append(AttributeNameValue('Requested Source vNIC Name', str(sourcenic)))
@@ -478,14 +446,17 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             # if netid > 0:
             #     tc.append(AttributeNameValue('Selected Network', str(targetnic)))
 
-            api.SetConnectorAttributes(resid, source, target, tc)
+            for name, value in name2value.iteritems():
+                tc.append(AttributeNameValue(name, value))
+            if tc:
+                api.SetConnectorAttributes(resid, source, target, tc)
             api.WriteMessageToReservationOutput(resid, 'Adding connector %s.%s &lt;-&gt; %s.%s' % (source, sourcenic, target, targetnic))
 
         log('Connect child resources 4')
 
         endpoints = []
         for x in internal_connector_requests:
-            source, _, target, _, _ = x
+            source, _, target, _, _, _ = x
             endpoints.append(source)
             endpoints.append(target)
         log('connecting endpoints %s' % endpoints)
@@ -546,9 +517,10 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             s = ''
             while True:
                 t = tn.read_until(pattern, timeout=5)
-                tt = re.sub(r'[^-_0-9A-Za-z:;,.@/"(){}\[\] \t\r\n]', '_', t)[0:500]
-                if tt:
-                    api.WriteMessageToReservationOutput(resid, tt)
+                tt = re.sub(r'''[^->'_0-9A-Za-z:;,.#@/"(){}\[\] \t\r\n]''', '_', t)
+                while tt:
+                    api.WriteMessageToReservationOutput(resid, tt[0:500])
+                    tt = tt[500:]
                 s += t
                 if pattern in s:
                     ts += s
@@ -567,7 +539,10 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         while True:
             tn.write('show interfaces ge* terse\n')
             s = tn.read_until('>')
-            api.WriteMessageToReservationOutput(resid, re.sub(r'[^-_0-9A-Za-z:;,.@/"(){}\[\] \t\r\n]', '_', s)[0:800])
+            tt = re.sub(r'''[^->'_0-9A-Za-z:;,.#@/"(){}\[\] \t\r\n]''', '_', s)
+            while tt:
+                api.WriteMessageToReservationOutput(resid, tt[0:500])
+                tt = tt[500:]
             missing = False
             for i in range(ncards):
                 if ('ge-%d/' % i) not in s:
@@ -602,14 +577,74 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         api.CreateResources(tocreate)
         api.SetAttributesValues(attrupdates)
 
+        cardno02maxport0 = {}
+        for cardno, nics in cardno2nics.iteritems():
+            for nic in nics:
+                if int(cardno) not in cardno02maxport0:
+                    cardno02maxport0[int(cardno)] = int(nic)
+                else:
+                    if int(nic) > cardno02maxport0[int(cardno)]:
+                        cardno02maxport0[int(cardno)] = int(nic)
+
+        connector_requests = []
+        removeconnectors = []
+        bb = ''
+        for c in rd.Connectors:
+            bb += c.Source + ' -- ' + c.Target + '\n'
+        log(bb)
+        currcard0 = 0
+        currport0 = 2
+        log('cardno to maxport: %s' % str(cardno02maxport0))
+
+        for c in rd.Connectors:
+            name2attr = {}
+            for a in c.Attributes:
+                name2attr[a.Name] = a.Value
+            if context.resource.name == c.Source:
+                if 'Requested Source vNIC Name' in name2attr:
+                    av = name2attr['Requested Source vNIC Name']
+                    del name2attr['Requested Source vNIC Name']
+                else:
+                    av = 'ge-%d-0-%d' % (currcard0, currport0)
+                    currport0 += 1
+                    if currport0 > cardno02maxport0[currcard0]:
+                        currport0 = 2
+                        currcard0 += 1
+
+                if 'ge-' in av:
+                    vfpno = int(a.Value.replace('ge-', '').split('-')[0])
+                    portno = int(a.Value.replace('ge-', '').split('-')[-1]) + 1
+                    connector_requests.append(
+                        (cardaddrstr2cardvmname[str(vfpno)] + '/' + av, 0, c.Target, 0, c.Alias, name2attr))
+                    removeconnectors.append((c.Source, c.Target))
+            if context.resource.name == c.Target:
+                if 'Requested Target vNIC Name' in name2attr:
+                    av = name2attr['Requested Target vNIC Name']
+                    del name2attr['Requested Target vNIC Name']
+                else:
+                    av = 'ge-%d-0-%d' % (currcard0, currport0)
+                    currport0 += 1
+                    if currport0 > cardno02maxport0[currcard0]:
+                        currport0 = 2
+                        currcard0 += 1
+
+                if 'ge-' in a.Value:
+                    vfpno = int(a.Value.replace('ge-', '').split('-')[0])
+                    portno = int(a.Value.replace('ge-', '').split('-')[-1])
+                    connector_requests.append(
+                        (c.Source, 0, cardaddrstr2cardvmname[str(vfpno)] + '/' + av, 0, c.Alias, name2attr))
+                    removeconnectors.append((c.Source, c.Target))
+
+        log('connector requests: %s' % connector_requests)
+
         for c in removeconnectors:
             api.RemoveConnectorsFromReservation(resid, [c[0], c[1]])
 
         api.SetConnectorsInReservation(resid, [
             SetConnectorRequest(source, target, 'bi', alias)
-            for source, _, target, _, alias in connector_requests
+            for source, _, target, _, alias, _ in connector_requests
         ])
-        for source, sourcenic, target, targetnic, _ in connector_requests:
+        for source, sourcenic, target, targetnic, _, name2value in connector_requests:
             tc = []
             if sourcenic > 0:
                 tc.append(AttributeNameValue('Requested Source vNIC Name', str(sourcenic)))
@@ -617,6 +652,10 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                 tc.append(AttributeNameValue('Requested Target vNIC Name', str(targetnic)))
             # if netid > 0:
             #     tc.append(AttributeNameValue('Selected Network', str(targetnic)))
+
+            for name, value in name2value.iteritems():
+                tc.append(AttributeNameValue(name, value))
+
             if tc:
                 api.SetConnectorAttributes(resid, source, target, tc)
             api.WriteMessageToReservationOutput(resid, 'Adding connector %s.%s &lt;-&gt; %s.%s' % (source, sourcenic, target, targetnic))
