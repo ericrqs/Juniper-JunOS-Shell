@@ -2,6 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="449d2983-59b0-4048-9176-1b0846a3d5f1" name="Default" comment="">
+      <change type="DELETED" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy (3).zip" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy (4).zip" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy (5).zip" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy (6).zip" afterPath="" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy (2).zip" afterPath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy (2).zip" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy.zip" afterPath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package - Copy.zip" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package.zip" afterPath="$PROJECT_DIR$/juniper_junos_shell/JunOS Package.zip" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/juniper_junos_shell/Resource Drivers - Python/Generic Juniper JunOS Driver Version3/juniper_junos_resource_driver.py" afterPath="$PROJECT_DIR$/juniper_junos_shell/Resource Drivers - Python/Generic Juniper JunOS Driver Version3/juniper_junos_resource_driver.py" />
     </list>
@@ -28,8 +34,8 @@
       <file leaf-file-name="juniper_junos_resource_driver.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/juniper_junos_shell/Resource Drivers - Python/Generic Juniper JunOS Driver Version3/juniper_junos_resource_driver.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="103">
-              <caret line="519" column="52" lean-forward="false" selection-start-line="519" selection-start-column="52" selection-end-line="519" selection-end-column="52" />
+            <state relative-caret-position="497">
+              <caret line="676" column="25" lean-forward="false" selection-start-line="676" selection-start-column="25" selection-end-line="676" selection-end-column="25" />
               <folding>
                 <element signature="e#0#131#0" expanded="true" />
               </folding>
@@ -113,7 +119,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>vfp</find>
       <find>resourcetype</find>
       <find>requested vnic</find>
       <find>get_inventory</find>
@@ -141,6 +146,9 @@
       <find>9300</find>
       <find>getreserva</find>
       <find>0:500</find>
+      <find>a.value</find>
+      <find>br-int</find>
+      <find>connectro</find>
     </findStrings>
     <dirStrings>
       <dir>C:\git\Juniper-JunOS-Shell</dir>
@@ -161,8 +169,8 @@
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="136" />
-    <option name="y" value="12" />
+    <option name="x" value="154" />
+    <option name="y" value="7" />
     <option name="width" value="1448" />
     <option name="height" value="851" />
   </component>
@@ -531,7 +539,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="136" y="12" width="1448" height="851" extended-state="0" />
+    <frame x="154" y="7" width="1448" height="851" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -630,8 +638,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/juniper_junos_shell/Resource Drivers - Python/Generic Juniper JunOS Driver Version3/juniper_junos_resource_driver.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="103">
-          <caret line="519" column="52" lean-forward="false" selection-start-line="519" selection-start-column="52" selection-end-line="519" selection-end-column="52" />
+        <state relative-caret-position="497">
+          <caret line="676" column="25" lean-forward="false" selection-start-line="676" selection-start-column="25" selection-end-line="676" selection-end-column="25" />
           <folding>
             <element signature="e#0#131#0" expanded="true" />
           </folding>

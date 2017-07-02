@@ -424,7 +424,6 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                     cardvms.append(r.Name)
         log('cardaddrstr2cardvmname: %s' % cardaddrstr2cardvmname)
 
-
         internal_connector_requests = []
         api.AddServiceToReservation(resid, 'VLAN Auto', 'vMX internal network', [])
         api.SetReservationServicePosition(resid, 'vMX internal network', x0-100, y0-150)
@@ -517,7 +516,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             s = ''
             while True:
                 t = tn.read_until(pattern, timeout=5)
-                tt = re.sub(r'''[^->'_0-9A-Za-z:;,.#@/"(){}\[\] \t\r\n]''', '_', t)
+                tt = re.sub(r'''[^->'_0-9A-Za-z*:;,.#@/"(){}\[\] \t\r\n]''', '_', t)
                 while tt:
                     api.WriteMessageToReservationOutput(resid, tt[0:500])
                     tt = tt[500:]
@@ -539,7 +538,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         while True:
             tn.write('show interfaces ge* terse\n')
             s = tn.read_until('>')
-            tt = re.sub(r'''[^->'_0-9A-Za-z:;,.#@/"(){}\[\] \t\r\n]''', '_', s)
+            tt = re.sub(r'''[^->'_0-9A-Za-z*:;,.#@/"(){}\[\] \t\r\n]''', '_', s)
             while tt:
                 api.WriteMessageToReservationOutput(resid, tt[0:500])
                 tt = tt[500:]
@@ -588,6 +587,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
 
         connector_requests = []
         removeconnectors = []
+        mgmtconnectors = []
         bb = ''
         for c in rd.Connectors:
             bb += c.Source + ' -- ' + c.Target + '\n'
@@ -612,11 +612,13 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                         currcard0 += 1
 
                 if 'ge-' in av:
-                    vfpno = int(a.Value.replace('ge-', '').split('-')[0])
-                    portno = int(a.Value.replace('ge-', '').split('-')[-1]) + 1
+                    vfpno = int(av.replace('ge-', '').split('-')[0])
+                    portno = int(av.replace('ge-', '').split('-')[-1]) + 1
                     connector_requests.append(
                         (cardaddrstr2cardvmname[str(vfpno)] + '/' + av, 0, c.Target, 0, c.Alias, name2attr))
                     removeconnectors.append((c.Source, c.Target))
+                else:
+                    mgmtconnectors.append((c.Source, c.Target))
             if context.resource.name == c.Target:
                 if 'Requested Target vNIC Name' in name2attr:
                     av = name2attr['Requested Target vNIC Name']
@@ -628,12 +630,14 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                         currport0 = 2
                         currcard0 += 1
 
-                if 'ge-' in a.Value:
-                    vfpno = int(a.Value.replace('ge-', '').split('-')[0])
-                    portno = int(a.Value.replace('ge-', '').split('-')[-1])
+                if 'ge-' in av:
+                    vfpno = int(av.replace('ge-', '').split('-')[0])
+                    portno = int(av.replace('ge-', '').split('-')[-1])
                     connector_requests.append(
                         (c.Source, 0, cardaddrstr2cardvmname[str(vfpno)] + '/' + av, 0, c.Alias, name2attr))
                     removeconnectors.append((c.Source, c.Target))
+                else:
+                    mgmtconnectors.append((c.Source, c.Target))
 
         log('connector requests: %s' % connector_requests)
 
@@ -663,4 +667,13 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         api.WriteMessageToReservationOutput(resid, 'vMX IP is %s' % vmxeip)
         api.UpdateResourceAddress(context.resource.name, vmxeip)
         api.SetAttributeValue(context.resource.name, 'VFP Card App Name Prefix', 'DONE')
+
+        mgmtendpoints = []
+        for c in mgmtconnectors:
+            a, b = c
+            mgmtendpoints.append(a)
+            mgmtendpoints.append(b)
+        if mgmtendpoints:
+            api.ConnectRoutesInReservation(resid, mgmtendpoints, 'bi')
+
         api.AutoLoad(context.resource.name)
