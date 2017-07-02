@@ -600,10 +600,12 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             name2attr = {}
             for a in c.Attributes:
                 name2attr[a.Name] = a.Value
-            if context.resource.name == c.Source:
-                if 'Requested Source vNIC Name' in name2attr:
-                    av = name2attr['Requested Source vNIC Name']
-                    del name2attr['Requested Source vNIC Name']
+
+            if context.resource.name == c.Source or context.resource.name == c.Target:
+                req = 'Requested Source vNIC Name' if context.resource.name == c.Source else 'Requested Target vNIC Name'
+                if req in name2attr:
+                    av = name2attr[req]
+                    del name2attr[req]
                 else:
                     av = 'ge-%d-0-%d' % (currcard0, currport0)
                     currport0 += 1
@@ -614,27 +616,13 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                 if 'ge-' in av:
                     vfpno = int(av.replace('ge-', '').split('-')[0])
                     portno = int(av.replace('ge-', '').split('-')[-1]) + 1
-                    connector_requests.append(
-                        (cardaddrstr2cardvmname[str(vfpno)] + '/' + av, 0, c.Target, 0, c.Alias, name2attr))
-                    removeconnectors.append((c.Source, c.Target))
-                else:
-                    mgmtconnectors.append((c.Source, c.Target))
-            if context.resource.name == c.Target:
-                if 'Requested Target vNIC Name' in name2attr:
-                    av = name2attr['Requested Target vNIC Name']
-                    del name2attr['Requested Target vNIC Name']
-                else:
-                    av = 'ge-%d-0-%d' % (currcard0, currport0)
-                    currport0 += 1
-                    if currport0 > cardno02maxport0[currcard0]:
-                        currport0 = 2
-                        currcard0 += 1
-
-                if 'ge-' in av:
-                    vfpno = int(av.replace('ge-', '').split('-')[0])
-                    portno = int(av.replace('ge-', '').split('-')[-1])
-                    connector_requests.append(
-                        (c.Source, 0, cardaddrstr2cardvmname[str(vfpno)] + '/' + av, 0, c.Alias, name2attr))
+                    if context.resource.name == c.Source:
+                        src = cardaddrstr2cardvmname[str(vfpno)] + '/' + av
+                        tgt = c.Target
+                    else:
+                        src = c.Source
+                        tgt = cardaddrstr2cardvmname[str(vfpno)] + '/' + av
+                    connector_requests.append((src, 0, tgt, 0, c.Alias, name2attr))
                     removeconnectors.append((c.Source, c.Target))
                 else:
                     mgmtconnectors.append((c.Source, c.Target))
