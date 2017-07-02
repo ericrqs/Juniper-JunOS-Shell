@@ -2,6 +2,35 @@
 <DataModelInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                xmlns="http://schemas.qualisystems.com/ResourceManagement/DataModelSchema.xsd">
     <Attributes>
+
+        <AttributeInfo Name="Number of VFP Cards" Type="Numeric" DefaultValue="0" IsReadOnly="false">
+            <Rules Override="false">
+                <Rule Name="Configuration" />
+            </Rules>
+        </AttributeInfo>
+        <AttributeInfo Name="Requested vNIC Name" Type="String" DefaultValue="1" IsReadOnly="false">
+            <Rules Override="false">
+                <Rule Name="Configuration" />
+            </Rules>
+        </AttributeInfo>
+        <AttributeInfo Name="VFP Card App Name Prefix" Type="String" DefaultValue="" IsReadOnly="false"
+                       Description="Name prefix of the VFP apps. Leave blank if this resource is not part of a vMX virtual router. '-card#' will be appended to the name when deploying each VFP, where '#' is the card number starting from 0. Ensure an appropriately named VFP app, e.g. VFP-card0, has been defined to deploy each preconfigured card VM image or snapshot, where /var/jnx/card/local/slot has been edited in that image or snapshot to contain the card id.">
+            <Rules>
+                <Rule Name="Configuration" />
+                <Rule Name="Settings" />
+            </Rules>
+        </AttributeInfo>
+        <AttributeInfo Name="vMX Port Address" Type="String" DefaultValue="" IsReadOnly="false">
+            <Rules>
+                <Rule Name="Configuration" />
+            </Rules>
+        </AttributeInfo>
+        <AttributeInfo Name="Management IP" Type="String" DefaultValue="dhcp" IsReadOnly="false">
+            <Rules>
+                <Rule Name="Configuration" />
+            </Rules>
+        </AttributeInfo>
+
         <AttributeInfo Name="User" Description="" Type="String" DefaultValue="" IsReadOnly="false">
             <Rules Override="false">
                 <Rule Name="Configuration"/>
@@ -396,7 +425,7 @@
             </Models>
             <Categories/>
         </ResourceFamily>
-        <ResourceFamily Name="Router" Description="" IsSearchable="true" IsPowerSwitch="false">
+        <ResourceFamily Name="Router" Description="" IsSearchable="true" IsPowerSwitch="false" ResourceType="Application">
             <AttachedAttributes/>
             <AttributeValues/>
             <Models>
@@ -496,6 +525,17 @@
                         <AttachedAttribute Name="Disable SNMP" IsOverridable="true" IsLocal="true">
                             <AllowedValues/>
                         </AttachedAttribute>
+
+                        <AttachedAttribute Name="Number of VFP Cards" IsOverridable="true" IsLocal="true">
+                            <AllowedValues/>
+                        </AttachedAttribute>
+                        <AttachedAttribute Name="VFP Card App Name Prefix" IsOverridable="true" IsLocal="true">
+                            <AllowedValues/>
+                        </AttachedAttribute>
+                        <AttachedAttribute Name="Management IP" IsOverridable="true" IsLocal="true">
+                            <AllowedValues/>
+                        </AttachedAttribute>
+
                     </AttachedAttributes>
                     <AttributeValues>
                         <AttributeValue Name="User" Value=""/>
@@ -527,6 +567,10 @@
                         <AttributeValue Name="Power Management" Value="True"/>
                         <AttributeValue Name="Enable SNMP" Value="True"/>
                         <AttributeValue Name="Disable SNMP" Value="False"/>
+
+                        <AttributeValue Name="Number of VFP Cards" Value="0"/>
+                        <AttributeValue Name="VFP Card App Name Prefix" Value=""/>
+                        <AttributeValue Name="Management IP" Value="dhcp"/>
                     </AttributeValues>
                     <ParentModels/>
                     <Drivers>
@@ -732,10 +776,44 @@
             </Models>
             <Categories/>
         </ResourceFamily>
+        <ResourceFamily Name="VNF Card" Description="" IsSearchable="true" ResourceType="Application">
+            <AttachedAttributes/>
+            <AttributeValues/>
+            <Models>
+                <ResourceModel Name="vMX VFP Card" Description="" SupportsConcurrentCommands="false">
+                    <AttachedAttributes/>
+                    <AttributeValues/>
+                    <ParentModels/>
+                    <Drivers/>
+                    <Scripts/>
+                </ResourceModel>
+            </Models>
+            <Categories/>
+        </ResourceFamily>
+
         <ResourceFamily Name="Port" IsSearchable="true" IsConnectable="true" IsLockedByDefault="true">
             <AttachedAttributes/>
             <AttributeValues/>
             <Models>
+                <ResourceModel Name="vMX Port" Description="" SupportsConcurrentCommands="true">
+                    <AttachedAttributes>
+                        <AttachedAttribute Name="Requested vNIC Name" IsOverridable="true" IsLocal="true">
+                            <AllowedValues />
+                        </AttachedAttribute>
+                        <AttachedAttribute Name="vMX Port Address" IsOverridable="true" IsLocal="true">
+                            <AllowedValues />
+                        </AttachedAttribute>
+                    </AttachedAttributes>
+                    <AttributeValues >
+                        <AttributeValue Name="Requested vNIC Name" Value="" />
+                        <AttributeValue Name="vMX Port Address" Value="" />
+                    </AttributeValues>
+                    <ParentModels>
+                        <ParentModelName>vMX VFP Card</ParentModelName>
+                    </ParentModels>
+                    <Drivers/>
+                    <Scripts />
+                </ResourceModel>
                 <ResourceModel Name="Generic Port" Description="" SupportsConcurrentCommands="false">
                     <AttachedAttributes>
                         <AttachedAttribute Name="MAC Address" IsOverridable="true" IsLocal="true">
