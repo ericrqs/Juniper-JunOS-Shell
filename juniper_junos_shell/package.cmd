@@ -3,7 +3,7 @@ mkdir pkg\Configuration
 mkdir pkg\DataModel
 
 copy Configuration\shellconfig.xml pkg\Configuration
-copy DataModel\datamodel.xml pkg\DataModel\datamodel.xml
+copy DataModel\datamodel.xml pkg\DataModel
 copy metadata.xml pkg
 
 mkdir "pkg\Resource Drivers - Python"
