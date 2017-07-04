@@ -1,5 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<DataModelInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+﻿<DataModelInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                xmlns="http://schemas.qualisystems.com/ResourceManagement/DataModelSchema.xsd">
     <Attributes>
 
@@ -209,7 +208,7 @@
                 <Rule Name="Available For Abstract Resources"/>
             </Rules>
         </AttributeInfo>
-        <AttributeInfo Name="MAC Address" Description="" Type="String" DefaultValue="" IsReadOnly="true">
+        <AttributeInfo Name="MAC Address" Description="" Type="String" DefaultValue="" IsReadOnly="false">
             <Rules Override="false">
                 <Rule Name="Setting"/>
                 <Rule Name="Available For Abstract Resources"/>
@@ -803,10 +802,14 @@
                         <AttachedAttribute Name="vMX Port Address" IsOverridable="true" IsLocal="true">
                             <AllowedValues />
                         </AttachedAttribute>
+                        <AttachedAttribute Name="MAC Address" IsOverridable="true" IsLocal="true">
+                            <AllowedValues />
+                        </AttachedAttribute>
                     </AttachedAttributes>
                     <AttributeValues >
                         <AttributeValue Name="Requested vNIC Name" Value="" />
                         <AttributeValue Name="vMX Port Address" Value="" />
+                        <AttributeValue Name="MAC Address" Value="" />
                     </AttributeValues>
                     <ParentModels>
                         <ParentModelName>vMX VFP Card</ParentModelName>

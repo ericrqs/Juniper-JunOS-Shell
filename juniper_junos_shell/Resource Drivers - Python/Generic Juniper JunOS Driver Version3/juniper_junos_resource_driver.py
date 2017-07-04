@@ -380,6 +380,16 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
 
         log('Connect child resources 5b')
 
+        cardaddrstr2cardvmname = {}
+        cardvms = []
+        rd = api.GetReservationDetails(resid).ReservationDescription
+        for r in rd.Resources:
+            for i in range(ncards):
+                if (vfp_name_template % i) in r.Name:
+                    cardaddrstr2cardvmname[str(i)] = r.Name
+                    cardvms.append(r.Name)
+        log('cardaddrstr2cardvmname: %s' % cardaddrstr2cardvmname)
+
         cpd = api.GetResourceDetails(api.GetResourceDetails(context.resource.name).VmDetails.CloudProviderFullName)
         vcenterip = cpd.Address
         vcenteruser = [x.Value for x in cpd.ResourceAttributes if x.Name == 'User'][0]
@@ -389,16 +399,33 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         sslContext.check_hostname = False
         sslContext.verify_mode = ssl.CERT_NONE
 
+
         log('connecting to vCenter %s' % vcenterip)
         si = SmartConnect(host=vcenterip, user=vcenteruser, pwd=vcenterpassword, sslContext=sslContext)
         log('connected')
         content = si.RetrieveContent()
         vm = None
+        cardvm2mac2nicname = {}
+
         for c in content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True).view:
+            for cardvm in cardvms:
+                if c.name == cardvm:
+                    for d in c.config.hardware.device:
+                        try:
+                            mac = d.macAddress
+                            mac = mac.lower()
+                            mac = mac.replace(':0', ':')
+                            if mac.startswith('0'):
+                                mac = mac[1:]
+                            network_adapter_n = d.deviceInfo.label
+                            if cardvm not in cardvm2mac2nicname:
+                                cardvm2mac2nicname[cardvm] = {}
+                            cardvm2mac2nicname[cardvm][mac] = network_adapter_n
+                        except:
+                            pass
             if c.name == context.resource.name:
                 vm = c
-                break
-
+        log('cardvm2mac2nicname = %s' % cardvm2mac2nicname)
         esxi_ip = vm.runtime.host.name
         log('adding serial port to %s' % context.resource.name)
         spec = vim.vm.ConfigSpec()
@@ -412,17 +439,8 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         spec.deviceChange.append(serial_spec)
         vm.ReconfigVM_Task(spec=spec)
         log('added serial port')
-        Disconnect(si)
 
-        cardaddrstr2cardvmname = {}
-        cardvms = []
-        rd = api.GetReservationDetails(resid).ReservationDescription
-        for r in rd.Resources:
-            for i in range(ncards):
-                if (vfp_name_template % i) in r.Name:
-                    cardaddrstr2cardvmname[str(i)] = r.Name
-                    cardvms.append(r.Name)
-        log('cardaddrstr2cardvmname: %s' % cardaddrstr2cardvmname)
+        Disconnect(si)
 
         internal_connector_requests = []
         api.AddServiceToReservation(resid, 'VLAN Auto', 'vMX internal network', [])
@@ -495,7 +513,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             ("exit", "#"),
             ("exit", ">"),
             ("SLEEP", "10"),
-            ("show interfaces fxp0.0 terse", ">")
+            ("show interfaces fxp0.0 terse", ">"),
         ]
         api.WriteMessageToReservationOutput(resid, 'Powering on %s' % context.resource.name)
         api.ExecuteResourceConnectedCommand(resid, context.resource.name, 'PowerOn', 'power')
@@ -535,55 +553,85 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             api.ExecuteResourceConnectedCommand(resid, cardvm, 'PowerOn', 'power')
         log('Connect child resources 10')
 
+
+        tn.write('exit\n')
+        tn.read_until('#')
+
+        mac2ifname = {}
         while True:
-            tn.write('show interfaces ge* terse\n')
-            s = tn.read_until('>')
-            tt = re.sub(r'''[^->'_0-9A-Za-z*:;,.#@/"(){}\[\] \t\r\n]''', '_', s)
+            mac2ifname0 = {}
+            tn.write('ifconfig\n')
+            ifconfig = tn.read_until('#')
+            tt = re.sub(r'''[^->'_0-9A-Za-z*:;,.#@/"(){}\[\] \t\r\n]''', '_', ifconfig)
             while tt:
                 api.WriteMessageToReservationOutput(resid, tt[0:500])
                 tt = tt[500:]
-            missing = False
-            for i in range(ncards):
-                if ('ge-%d/' % i) not in s:
-                    api.WriteMessageToReservationOutput(resid, 'Still waiting for card %d' % i)
-                    missing = True
-            if not missing:
-                break
-            sleep(5)
+            m = re.findall(
+                r'^((ge|xe|et)-\d+/\d+/\d+).*?([0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+)',
+                ifconfig, re.DOTALL + re.MULTILINE)
+            for j in m:
+                ifname, _, mac = j
+                mac = mac.lower()
+                mac2ifname0[mac] = ifname
+            log('mac2ifname0 = %s' % mac2ifname0)
+            waitcards = []
+            seencards = set()
+            for mac, ifname in mac2ifname0.iteritems():
+                seencards.add(int(ifname.split('-')[1].split('/')[0]))
 
-        cardno2nics = {}
-        for interface in re.findall(r'ge-[0-9]*/[0-9]*/[0-9]*', s):
-            cardno, _, nic = interface.replace('ge-', '').split('/')
-            if cardno not in cardno2nics:
-                cardno2nics[cardno] = []
-            cardno2nics[cardno].append(nic)
+            if len(seencards) >= len(cardvms):
+                mac2ifname = mac2ifname0
+                break
+
+            # for cardvm in cardvm2mac2nicname:
+            #     for mac in cardvm2mac2nicname[cardvm]:
+            #         if mac not in mac2ifname0:
+            #             waitcards.append(cardvm)
+            #             break
+            # if not waitcards:
+            #     mac2ifname = mac2ifname0
+            #     break
+            api.WriteMessageToReservationOutput(resid, 'Still waiting for %d card(s)' % (len(cardvms)-len(seencards)))
+            # api.WriteMessageToReservationOutput(resid, 'Still waiting for cards: %s' % ', '.join(waitcards))
+            sleep(5)
 
         tocreate = []
         attrupdates = []
-        for cardno, nics in cardno2nics.iteritems():
-            for nic in nics:
+
+        for cardvm in cardvm2mac2nicname:
+            mac2nicname = cardvm2mac2nicname[cardvm]
+            for mac, nicname in mac2nicname.iteritems():
+                if mac not in mac2ifname:
+                    log('NIC %s %s not represented as JunOS interface' % (mac, nicname))
+                    continue
+                ifname = mac2ifname[mac]
                 tocreate.append(ResourceInfoDto('Port',
                                                 'vMX Port',
-                                                'ge-%s-0-%s' % (cardno, nic),
-                                                'ge-%s-0-%s' % (cardno, nic),
+                                                ifname.replace('/', '-'),
+                                                ifname.replace('/', '-'),
                                                 '',
-                                                cardaddrstr2cardvmname[cardno],
-                                                ''))
-                attrupdates.append(ResourceAttributesUpdateRequest('%s/ge-%s-0-%s' % (cardaddrstr2cardvmname[cardno], cardno, nic), [
-                    AttributeNameValue('vMX Port Address', 'ge-%s-0-%s' % (cardno, nic)),
-                    AttributeNameValue('Requested vNIC Name', str(int(nic) + 1)),
-                ]))
+                                                cardvm,
+                                                ''
+                                                ))
+                attrupdates.append(ResourceAttributesUpdateRequest(
+                    '%s/%s' % (cardvm, ifname.replace('/', '-')), [
+                        AttributeNameValue('vMX Port Address', ifname),
+                        AttributeNameValue('Requested vNIC Name', nicname.replace('Network adapter ', '')),
+                        AttributeNameValue('MAC Address', mac),
+                    ]
+                ))
+
         api.CreateResources(tocreate)
         api.SetAttributesValues(attrupdates)
 
-        cardno02maxport0 = {}
-        for cardno, nics in cardno2nics.iteritems():
-            for nic in nics:
-                if int(cardno) not in cardno02maxport0:
-                    cardno02maxport0[int(cardno)] = int(nic)
-                else:
-                    if int(nic) > cardno02maxport0[int(cardno)]:
-                        cardno02maxport0[int(cardno)] = int(nic)
+        # cardno02maxport0 = {}
+        # for cardno, nics in cardno2nics.iteritems():
+        #     for nic in nics:
+        #         if int(cardno) not in cardno02maxport0:
+        #             cardno02maxport0[int(cardno)] = int(nic)
+        #         else:
+        #             if int(nic) > cardno02maxport0[int(cardno)]:
+        #                 cardno02maxport0[int(cardno)] = int(nic)
 
         connector_requests = []
         removeconnectors = []
@@ -594,7 +642,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         log(bb)
         currcard0 = 0
         currport0 = 2
-        log('cardno to maxport: %s' % str(cardno02maxport0))
+        # log('cardno to maxport: %s' % str(cardno02maxport0))
 
         for c in rd.Connectors:
             name2attr = {}
@@ -609,9 +657,9 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                 else:
                     av = 'ge-%d-0-%d' % (currcard0, currport0)
                     currport0 += 1
-                    if currport0 > cardno02maxport0[currcard0]:
-                        currport0 = 2
-                        currcard0 += 1
+                    # if currport0 > cardno02maxport0[currcard0]:
+                    #     currport0 = 2
+                    #     currcard0 += 1
 
                 if 'ge-' in av:
                     vfpno = int(av.replace('ge-', '').split('-')[0])
