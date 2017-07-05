@@ -29,6 +29,12 @@
                 <Rule Name="Configuration" />
             </Rules>
         </AttributeInfo>
+        <AttributeInfo Name="Extra Config Commands" Type="String" DefaultValue="" IsReadOnly="false"
+                Description="Commands to run on the device in config mode after deployment, separated by semicolons. For example: set chassis fpc 1 pic 0 interface-type xe">
+            <Rules>
+                <Rule Name="Configuration" />
+            </Rules>
+        </AttributeInfo>
 
         <AttributeInfo Name="User" Description="" Type="String" DefaultValue="" IsReadOnly="false">
             <Rules Override="false">
@@ -534,6 +540,9 @@
                         <AttachedAttribute Name="Management IP" IsOverridable="true" IsLocal="true">
                             <AllowedValues/>
                         </AttachedAttribute>
+                        <AttachedAttribute Name="Extra Config Commands" IsOverridable="true" IsLocal="true">
+                            <AllowedValues/>
+                        </AttachedAttribute>
 
                     </AttachedAttributes>
                     <AttributeValues>
@@ -570,6 +579,7 @@
                         <AttributeValue Name="Number of VFP Cards" Value="0"/>
                         <AttributeValue Name="VFP Card App Name Prefix" Value=""/>
                         <AttributeValue Name="Management IP" Value="dhcp"/>
+                        <AttributeValue Name="Extra Config Commands" Value=""/>
                     </AttributeValues>
                     <ParentModels/>
                     <Drivers>

@@ -488,6 +488,10 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         userfullname = context.resource.attributes.get('User Full Name', username)
         log('Connect child resources 6')
 
+        ecc = context.resource.attributes.get('Extra Config Commands', '')
+        extra_config_commands = [
+                                    (s.strip(), '#')
+                                    for s in ecc.split(';')] + [('commit', '#')] if ecc else []
         command_patterns = [
             ("", "login:"),
             ("root", "#"),
@@ -511,6 +515,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             (userpassword, "#"),
             ("commit", "#"),
             ("exit", "#"),
+        ] + extra_config_commands + [
             ("exit", ">"),
             ("SLEEP", "10"),
             ("show interfaces fxp0.0 terse", ">"),
@@ -567,14 +572,13 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                 api.WriteMessageToReservationOutput(resid, tt[0:500])
                 tt = tt[500:]
             m = re.findall(
-                r'^((ge|xe|et)-\d+/\d+/\d+).*?([0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+)',
+                r'^((fe|ge|xe|et)-\d+/\d+/\d+).*?([0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+)',
                 ifconfig, re.DOTALL + re.MULTILINE)
             for j in m:
                 ifname, _, mac = j
                 mac = mac.lower()
                 mac2ifname0[mac] = ifname
             log('mac2ifname0 = %s' % mac2ifname0)
-            waitcards = []
             seencards = set()
             for mac, ifname in mac2ifname0.iteritems():
                 seencards.add(int(ifname.split('-')[1].split('/')[0]))
@@ -583,21 +587,12 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                 mac2ifname = mac2ifname0
                 break
 
-            # for cardvm in cardvm2mac2nicname:
-            #     for mac in cardvm2mac2nicname[cardvm]:
-            #         if mac not in mac2ifname0:
-            #             waitcards.append(cardvm)
-            #             break
-            # if not waitcards:
-            #     mac2ifname = mac2ifname0
-            #     break
             api.WriteMessageToReservationOutput(resid, 'Still waiting for %d card(s)' % (len(cardvms)-len(seencards)))
-            # api.WriteMessageToReservationOutput(resid, 'Still waiting for cards: %s' % ', '.join(waitcards))
             sleep(5)
 
         tocreate = []
         attrupdates = []
-
+        intfpool = []
         for cardvm in cardvm2mac2nicname:
             mac2nicname = cardvm2mac2nicname[cardvm]
             for mac, nicname in mac2nicname.iteritems():
@@ -605,6 +600,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                     log('NIC %s %s not represented as JunOS interface' % (mac, nicname))
                     continue
                 ifname = mac2ifname[mac]
+                intfpool.append(ifname.replace('/', '-'))
                 tocreate.append(ResourceInfoDto('Port',
                                                 'vMX Port',
                                                 ifname.replace('/', '-'),
@@ -624,14 +620,21 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         api.CreateResources(tocreate)
         api.SetAttributesValues(attrupdates)
 
-        # cardno02maxport0 = {}
-        # for cardno, nics in cardno2nics.iteritems():
-        #     for nic in nics:
-        #         if int(cardno) not in cardno02maxport0:
-        #             cardno02maxport0[int(cardno)] = int(nic)
-        #         else:
-        #             if int(nic) > cardno02maxport0[int(cardno)]:
-        #                 cardno02maxport0[int(cardno)] = int(nic)
+        intfpool = sorted(intfpool)
+        log('intfpool before: %s' % intfpool)
+        for c in rd.Connectors:
+            name2attr = {}
+            for a in c.Attributes:
+                name2attr[a.Name] = a.Value
+
+            if context.resource.name == c.Source or context.resource.name == c.Target:
+                req = 'Requested Source vNIC Name' if context.resource.name == c.Source else 'Requested Target vNIC Name'
+                if req in name2attr:
+                    avreq = name2attr[req]
+                    if avreq in intfpool:
+                        intfpool.remove(avreq)
+
+        log('intfpool after: %s' % intfpool)
 
         connector_requests = []
         removeconnectors = []
@@ -640,9 +643,6 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
         for c in rd.Connectors:
             bb += c.Source + ' -- ' + c.Target + '\n'
         log(bb)
-        currcard0 = 0
-        currport0 = 2
-        # log('cardno to maxport: %s' % str(cardno02maxport0))
 
         for c in rd.Connectors:
             name2attr = {}
@@ -652,18 +652,38 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
             if context.resource.name == c.Source or context.resource.name == c.Target:
                 req = 'Requested Source vNIC Name' if context.resource.name == c.Source else 'Requested Target vNIC Name'
                 if req in name2attr:
-                    av = name2attr[req]
+                    avreq = name2attr[req]
                     del name2attr[req]
+                    log('Connector attribute %s' % av)
                 else:
-                    av = 'ge-%d-0-%d' % (currcard0, currport0)
-                    currport0 += 1
-                    # if currport0 > cardno02maxport0[currcard0]:
-                    #     currport0 = 2
-                    #     currcard0 += 1
+                    avreq = 'AUTO'
+                    log('Blank connector attribute')
 
-                if 'ge-' in av:
-                    vfpno = int(av.replace('ge-', '').split('-')[0])
-                    portno = int(av.replace('ge-', '').split('-')[-1]) + 1
+                if avreq == 'AUTO':
+                    av = intfpool.pop(0)
+                    log('Pool allocated interface %s' % av)
+                elif avreq in ['ge', 'fe', 'te', 'et', 'xe']:
+                    for i in range(len(intfpool)):
+                        if intfpool[i].startswith(avreq):
+                            av = intfpool.pop(i)
+                            log('Pool allocated interface type %s: %s' % (avreq, av))
+                            break
+                elif avreq.startswith('ge-') or \
+                        avreq.startswith('fe-') or \
+                        avreq.startswith('te-') or \
+                        avreq.startswith('et-') or \
+                        avreq.startswith('xe-'):
+                    av = avreq
+                    log('Explicit interface request %s' % av)
+                else:
+                    av = ''
+                    log('Skipping management interface request %s' % avreq)
+                log('Pool now %s' % intfpool)
+                if av:
+                    av2 = av
+                    for s in ['ge', 'fe', 'te', 'et', 'xe']:
+                        av2 = av2.replace(s+'-', '')
+                    vfpno = int(av2.split('-')[0])
                     if context.resource.name == c.Source:
                         src = cardaddrstr2cardvmname[str(vfpno)] + '/' + av
                         tgt = c.Target
