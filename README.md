@@ -24,6 +24,7 @@ The JunOS driver is capable of autoloading the vMX as if it were a standard JunO
   - VFP Card App Name Prefix -- the prefix of the app that will be added for each card. Currently the card VM templates must be preconfigured with the slot id. For each slot id, create the file /var/jnx/card/local/slot and set the contents to be a single number, starting with 0 for the first card, and take a snapshot. For each snapshot, create a distinct app with a common prefix (e.g. VFPXYZ-card0, VFPXYZ-card1, ...), and set "VFP Card App Name Prefix" to the prefix (e.g. "VFPXYZ").
   - Management IP -- requested static management IP or "dhcp"
   - Extra Config Commands -- semicolon-separated commands to be executed in the top level of JunOS configuration mode
+  - Note: Set other resource attributes on the deployed app like username and password that will be set up on the new vMX router. Set SNMP v2c and a read community in order for the JunOS autoload to run correctly during Setup.
 - Family "VNF Card", model "vMX VFP Card"
   - No attributes
   - Child model vMX Port
