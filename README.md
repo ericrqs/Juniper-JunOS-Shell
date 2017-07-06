@@ -12,6 +12,9 @@ A CloudShell Shell implements integration of a device model, application or othe
 
 This networking shell provides connectivity and management capabilities such as power management, save and restore configruations, structure autoload functionality and upgrade firmware, etc.
 
+# vMX
+
+
 This shell is forked from Quali's official JunOS first generation shell.
 
 vMX is added to a blueprint by dragging a single app and drawing connectors to it. The added function connect_child_resources in the deployed app resource driver (Generic Juniper JunOS Driver Version3) will be called by Setup and to automatically add vMX VFP card apps to the reservation, deploy them, and rearrange the connectors so that blueprint devices with connectors to the vMX will instead be connected to ports under deployed cards.
@@ -39,3 +42,13 @@ The JunOS driver is capable of autoloading the vMX as if it were a standard JunO
   - MAC Address (lowercase, colons, no leading zeroes) (for information only)
 - Function connect_child_resources for deploying the multi-VM vMX added to driver Generic Juniper JunOS Driver Version3
 
+
+## Other notes
+
+Only vSphere is supported for vMX. The driver uses pyvmomi for additional vSphere operations beyond the standard cloud provider. No need to install PowerCLI or anything else.
+
+
+If the first NIC of the vMX controller template isn't already on the management network, connect a manual VLAN service representing the management VLAN to the vMX app with Requested Source/Target vNIC Name on the connector explicitly set to "1". 
+
+
+In the vSphere client, for each potential ESXi host where the controller VM could get deployed, go to Configuration tab, Software section, Security Profile, Firewall, Properties... and enable "VM serial port connected over network" (not "VM serial port connected to vSPC"). If needed, you can click the Firewall button while standing on "VM serial port connected over network" and enable the access only for the IP of the execution server (at least according to the explanation on the dialog).
