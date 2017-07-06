@@ -42,6 +42,13 @@ The JunOS driver is capable of autoloading the vMX as if it were a standard JunO
 - Function connect_child_resources for deploying the multi-VM vMX added to driver Generic Juniper JunOS Driver Version3
 
 
+## Installation
+
+Create an app named vMX to deploy the vMX controller (VCP). Set the target resource model to be Juniper JunOS Router. Fill the vMX-specific attributes and standard JunOS attributes as described above. This app will be dragged by users to the canvas.
+
+Create apps for the vMX cards (VFP). These will be automatically added to the canvas by the vMX resource driver during deployment. For each slot id, create a different image. The most efficient way is to use snapshots and linked clones. On the VFP image, power it on and log in as root (password "root" or blank). For each potential slot id (0, 1, 2, ...), create the file /var/jnx/card/local/slot and set the contents to be a single number, power off the VM, and take a snapshot. For each such snapshot, create a distinct CloudShell app using a common prefix (e.g. VFPXYZ-card0, VFPXYZ-card1, ...), and set "VFP Card App Name Prefix" on the user-facing vMX app to the prefix (e.g. "VFPXYZ").
+
+
 ## Other notes
 
 Only vSphere is supported for vMX. The driver uses pyvmomi for additional vSphere operations beyond the standard cloud provider. No need to install PowerCLI or anything else.
