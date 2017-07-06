@@ -12,10 +12,9 @@ A CloudShell Shell implements integration of a device model, application or othe
 
 This networking shell provides connectivity and management capabilities such as power management, save and restore configruations, structure autoload functionality and upgrade firmware, etc.
 
-# vMX
+## vMX deployment
 
-
-This shell is forked from Quali's official JunOS first generation shell.
+This repository is forked from Quali's official JunOS first generation shell.
 
 vMX is added to a blueprint by dragging a single app and drawing connectors to it. The added function connect_child_resources in the deployed app resource driver (Generic Juniper JunOS Driver Version3) will be called by Setup and to automatically add vMX VFP card apps to the reservation, deploy them, and rearrange the connectors so that blueprint devices with connectors to the vMX will instead be connected to ports under deployed cards.
 
