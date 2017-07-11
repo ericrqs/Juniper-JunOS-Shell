@@ -58,3 +58,15 @@ If the first NIC of the vMX controller template isn't already on the management 
 
 
 In the vSphere client, for each potential ESXi host where the controller VM could get deployed, go to Configuration tab, Software section, Security Profile, Firewall, Properties... and enable "VM serial port connected over network" (not "VM serial port connected to vSPC"). If needed, you can click the Firewall button while standing on "VM serial port connected over network" and enable the access only for the IP of the execution server (at least according to the explanation on the dialog).
+
+
+If a VFP VM has 10 vNICs, there will be 10 interfaces ge-x/0/0 through ge-x/0/9, but only 7 of these interfaces will be usable. They will have MAC addresses from vNICs. The remaining 3 interfaces will have bogus MAC addresses and it is unknown whether they are usable for anything. Presumably this has something to do with the first vNICs being reserved for management interfaces, but only two management interfaces are mentioned in the docs. 
+
+
+### Requested Source vNIC Name, Requested Target vNIC Name
+
+Connectors without the attribute set will be automatically assigned to interfaces.
+
+Connectors can have the attribute set explicitly to a value like ge-1-0-5, where / is replaced with -, the first number is the card number starting from 0, the middle number is always 0, and the last number is the interface number starting from 0
+
+Connectors can also have one of the values "ge", "et", or "xe". This will automatically assign an interface of that speed. The speeds can be set per card in the VCP template ahead of time (before the cards are actually connected), or using semicolon-separated commands in the Extra Config Commands attribute. Example command: "set chassis fpc 0 pic 0 interface-type xe". The fpc number is the card number starting from 0 and the pic number should always be 0.
