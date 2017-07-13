@@ -108,10 +108,10 @@ Autoloading ports under VFP deployed app resources:
 VFP ports connected to VLANs:
 ![](screenshots/vmx12.png)
 
-After deployment, you can SSH to the vMX using the Address of the deployed vMX resource, which would be assigned from DHCP or set staticaly using the deployed app Management IP attribute:
+After deployment, you can SSH to the vMX using the Address of the deployed vMX resource:
 ![](screenshots/vmx13.png)
 
-VFP snapshots with hard-coded snapshot id:
+VFP snapshots with hard-coded snapshot ids:
 ![](screenshots/vmx slot id snapshots.png)
 
 Defining a VFP app pointing to a specific card id snapshot: 
