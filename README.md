@@ -12,9 +12,9 @@ This is a modified version of the first generation JunOS shell that can be used 
 
 It handles both deployment and use of the virtual router.
 
-The shell is selected as the deployment target of a vSphere app for the vMX controller (VCP). This is dragged into the blueprint canvas and connected with ordinary connectors. During Setup, the resource driver automatically deploys and connects additional vSphere apps for the vMX cards (VFP) and moves the connectors to individual VFP VMs. A connector can also be added after Setup, going directly to an interface under some VFP.
+The Juniper JunOS Router model is selected as the deployment target of a vSphere app for the vMX controller (VCP). This is dragged into the blueprint canvas and connected with ordinary connectors. During Setup, the resource driver automatically deploys and connects additional vSphere apps for the vMX cards (VFP) and moves the connectors to individual VFP VMs. A connector can also be added after Setup, going directly to an interface under some VFP.
 
-VCP and VFP templates on vSphere must be provided.
+VCP and VFP templates on vSphere and corresponding apps must be provided.
 
 Point-to-point and VLAN service connections are fully supported. 
 
