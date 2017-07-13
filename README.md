@@ -66,33 +66,38 @@ In the vSphere client, for each potential ESXi host where the controller VM coul
 A blueprint containing a vMX app and connectors:
 ![](screenshots/vmx01.png)
 
-#### Connectors
+The vMX is deployed in multiple stages triggered by the default Setup. Most of the work is done in connect_child_resources of the Juniper JunOS Router resource driver, which is attached to the vMX deployed resource.
 
-Connectors can be point-to-point or to VLAN services.
-
-##### Requested Source vNIC Name or Requested Target vNIC Name
-
-Be sure to set the variable for the right end of the connector, especially when connecting two vMX to each other. 
-
-Connectors without the attribute set will be automatically assigned to interfaces starting from ge-0/0/0.
-
-Connectors can have the attribute set explicitly to a value like ge-1-0-5, where / from the vMX interface name is changed to - in the connector attribute. The first number is the card number starting from 0, the middle number is always 0, and the last number is the interface number starting from 0
-
-Connectors can also have one of the values "ge", "et", or "xe". This will automatically assign an interface of that speed. The speeds can be set per card in the VCP template ahead of time (before the cards are actually connected), or using semicolon-separated commands in the Extra Config Commands attribute. Example command: "set chassis fpc 0 pic 0 interface-type xe". The fpc number is the card number starting from 0 and the pic number should always be 0.
-
-Optional connector attributes - blank, ge-1-0-5, or ge
-![](screenshots/vmx02.png)
+VFP card apps added to the reservation automatically after the controller has deployed: 
 ![](screenshots/vmx03.png)
 
-Connectors going to the vMX app are moved automatically to vFP VMs: 
-![](screenshots/jvmx6.png)
 
 Internal network automatically created and connected to VCP and VFPs during deployment:
 ![](screenshots/vmx04.png)
 ![](screenshots/vmx05.png)
 
+Connectors going to the vMX app moved automatically to vFP VMs: 
+![](screenshots/jvmx6.png)
 
-#### Deployment process
+#### Connectors
+
+Connectors can be point-to-point from the vMX to another device (including another vMX) or from the vMX to a VLAN service.
+
+##### Requested Source vNIC Name or Requested Target vNIC Name
+
+Be sure to set the attribute for the correct end of the connector (Requested Source vNIC Name or Requested Target vNIC Name), especially when connecting two vMX to each other. 
+
+Connectors without the attribute set will be automatically assigned to interfaces starting from ge-0/0/0.
+
+The attribute can be set explicitly to a value like ge-1-0-5, where / from the vMX interface name is changed to - in the connector attribute. The first number is the card number starting from 0, the middle number is always 0, and the last number is the interface number starting from 0
+
+The attribute can also have one of the values "ge", "et", or "xe". This will automatically assign an interface of that speed. The speeds can be set per card in the VCP template ahead of time (before the cards are actually connected), or using semicolon-separated commands in the Extra Config Commands attribute. Example command: "set chassis fpc 0 pic 0 interface-type xe". The fpc number is the card number starting from 0 and the pic number should always be 0.
+
+Optional connector attributes - blank, ge-1-0-5, or ge
+![](screenshots/vmx02.png)
+
+
+#### Rest of deployment
 vMX boot progress tracked in the portal:
 ![](screenshots/vmx06.png)
 ![](screenshots/vmx07.png)
