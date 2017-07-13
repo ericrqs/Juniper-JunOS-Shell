@@ -49,13 +49,16 @@ The JunOS driver is capable of autoloading the vMX as if it were a standard JunO
 
 ### Installation
 
-Create an app named vMX to deploy the vMX controller (VCP). Set the target resource model to be Juniper JunOS Router. Fill the vMX-specific attributes and standard JunOS attributes as described above. This app will be dragged by users to the canvas.
+Important: In Resource Manager, Resource Families, Deployment Options family, every vCenter option you will use, change Wait for IP to be a user input, or change the default to false. On all vMX-related apps, Wait for IP must be false. 
+
+Create an app named vMX to deploy the vMX controller (VCP). Set the target resource model to be Juniper JunOS Router. Fill the vMX-specific attributes and standard JunOS attributes as described above. This app will be dragged by users to the canvas. Be sure to set Wait for IP to false.
 ![](screenshots/vmx_inputs.png)
 
 Create apps for the vMX cards (VFP). These will be automatically added to the canvas by the JunOS resource driver during Setup. For each slot id, create a different image. The most efficient way is to use snapshots and linked clones. On the VFP image, power it on and log in as root (password "root" or blank). For each potential slot id (0, 1, 2, ...), create the file /var/jnx/card/local/slot and set the contents to be a single number, power off the VM, and take a snapshot. For each such snapshot, create a distinct CloudShell app using a common prefix (e.g. VFPXYZ-card0, VFPXYZ-card1, ...), and set "VFP Card App Name Prefix" on the user-facing vMX app to the prefix (e.g. "VFPXYZ").
+
 ![](screenshots/vmx_slot_id_snapshots.png)
 
-Defining a VFP app pointing to a specific card id snapshot: 
+Defining a VFP app pointing to a specific card id snapshot. Be sure to set Wait for IP to false.
 ![](screenshots/vmx14.png)
 
 In the vSphere client, for each potential ESXi host where the controller VM could get deployed, go to Configuration tab, Software section, Security Profile, Firewall, Properties... and enable "VM serial port connected over network" (not "VM serial port connected to vSPC"). If needed, you can click the Firewall button while standing on "VM serial port connected over network" and enable the access only for the IP of the execution server.
