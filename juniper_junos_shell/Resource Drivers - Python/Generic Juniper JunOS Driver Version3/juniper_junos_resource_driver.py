@@ -663,11 +663,16 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                     av = intfpool.pop(0)
                     log('Pool allocated interface %s' % av)
                 elif avreq in ['ge', 'fe', 'te', 'et', 'xe']:
+                    av = ''
                     for i in range(len(intfpool)):
                         if intfpool[i].startswith(avreq):
                             av = intfpool.pop(i)
                             log('Pool allocated interface type %s: %s' % (avreq, av))
                             break
+                    if not av:
+                        log('No interfaces available for requested type %s' % avreq)
+                        av = intfpool.pop(0)
+                        api.WriteMessageToReservationOutput(resid, 'Warning: No interfaces available for requested type %s. Allocated %s instead.' % (avreq, av))
                 elif avreq.startswith('ge-') or \
                         avreq.startswith('fe-') or \
                         avreq.startswith('te-') or \
