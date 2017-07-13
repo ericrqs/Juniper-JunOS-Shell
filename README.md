@@ -1,11 +1,5 @@
 # Juniper JunOS Shell
 
-[![Build status](https://travis-ci.org/QualiSystems/Juniper-JunOS-Shell.svg?branch=dev)](https://travis-ci.org/QualiSystems/Juniper-JunOS-Shell)
-[![Coverage Status](https://coveralls.io/repos/github/QualiSystems/Juniper-JunOS-Shell/badge.svg)](https://coveralls.io/github/QualiSystems/Juniper-JunOS-Shell)
-[![PyPI version](https://badge.fury.io/py/Juniper-JunOS-Shell.svg)](https://badge.fury.io/py/Juniper-JunOS-Shell)
-[![Dependency Status](https://dependencyci.com/github/QualiSystems/Juniper-JunOS-Shell/badge)](https://dependencyci.com/github/QualiSystems/Juniper-JunOS-Shell)
-[![Stories in Ready](https://badge.waffle.io/QualiSystems/Juniper-JunOS-Shell.svg?label=ready&title=Ready)](http://waffle.io/QualiSystems/Juniper-JunOS-Shell)
-
 This Shell supports all Juniper networking devices that run JunOS operating system.
 
 A CloudShell Shell implements integration of a device model, application or other technology with CloudShell. A Shell consists of a data-model that defines how the device and its properties are modeled in CloudShell along with an automation that enables interaction with the device via CloudShell.
@@ -63,10 +57,66 @@ In the vSphere client, for each potential ESXi host where the controller VM coul
 If a VFP VM has 10 vNICs, there will be 10 interfaces ge-x/0/0 through ge-x/0/9, but only 7 of these interfaces will be usable. They will have MAC addresses from vNICs. The remaining 3 interfaces will have bogus MAC addresses and it is unknown whether they are usable for anything. Presumably this has something to do with the first vNICs being reserved for management interfaces, but only two management interfaces are mentioned in the docs. 
 
 
-### Requested Source vNIC Name, Requested Target vNIC Name
 
-Connectors without the attribute set will be automatically assigned to interfaces.
+### Connectors
 
-Connectors can have the attribute set explicitly to a value like ge-1-0-5, where / is replaced with -, the first number is the card number starting from 0, the middle number is always 0, and the last number is the interface number starting from 0
+Connectors can be point-to-point or to VLAN services.
+
+#### Requested Source vNIC Name or Requested Target vNIC Name
+
+Be sure to set the variable for the right end of the connector, especially when connecting two vMX to each other. 
+
+Connectors without the attribute set will be automatically assigned to interfaces starting from ge-0/0/0.
+
+Connectors can have the attribute set explicitly to a value like ge-1-0-5, where / from the vMX interface name is changed to - in the connector attribute. The first number is the card number starting from 0, the middle number is always 0, and the last number is the interface number starting from 0
 
 Connectors can also have one of the values "ge", "et", or "xe". This will automatically assign an interface of that speed. The speeds can be set per card in the VCP template ahead of time (before the cards are actually connected), or using semicolon-separated commands in the Extra Config Commands attribute. Example command: "set chassis fpc 0 pic 0 interface-type xe". The fpc number is the card number starting from 0 and the pic number should always be 0.
+
+
+A blueprint containing a vMX app and connectors:
+![](screenshots/vmx01.png)
+
+Optional connector attributes - blank, ge-1-0-5, or ge
+![](screenshots/vmx02.png)
+![](screenshots/vmx03.png)
+
+Connectors going to the vMX app are moved automatically to vFP VMs: 
+![](screenshots/jvmx6.png)
+
+
+Internal network automatically created and connected to VCP and VFPs during deployment:
+![](screenshots/vmx04.png)
+![](screenshots/vmx05.png)
+
+vMX boot progress tracked in the portal:
+![](screenshots/vmx06.png)
+![](screenshots/vmx07.png)
+
+Automatically configuring user credentials and management IP:
+![](screenshots/vmx08.png)
+![](screenshots/vmx09.png)
+
+Polling for expected interfaces based on number of cards:
+![](screenshots/vmx10.png)
+
+Autoloading ports under VFP deployed app resources:
+![](screenshots/vmx11.png)
+
+VFP ports connected to VLANs:
+![](screenshots/vmx12.png)
+
+After deployment, you can SSH to the vMX using the Address of the deployed vMX resource, which would be assigned from DHCP or set staticaly using the deployed app Management IP attribute:
+![](screenshots/vmx13.png)
+
+VFP snapshots with hard-coded snapshot id:
+![](screenshots/vmx slot id snapshots.png)
+
+Defining a VFP app pointing to a specific card id snapshot: 
+![](screenshots/vmx14.png)
+
+Drawing and connecting a connector to a specific vMX port on a deployed VFP:
+![](screenshots/jvmx2.png)
+![](screenshots/jvmx3.png)
+
+![](screenshots/jvmx5.png)
+

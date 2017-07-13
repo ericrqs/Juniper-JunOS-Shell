@@ -654,7 +654,7 @@ class JuniperJunOSResourceDriver(ResourceDriverInterface, NetworkingResourceDriv
                 if req in name2attr:
                     avreq = name2attr[req]
                     del name2attr[req]
-                    log('Connector attribute %s' % av)
+                    log('Connector attribute %s' % avreq)
                 else:
                     avreq = 'AUTO'
                     log('Blank connector attribute')
