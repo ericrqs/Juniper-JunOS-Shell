@@ -58,7 +58,7 @@ Create apps for the vMX cards (VFP). These will be automatically added to the ca
 Defining a VFP app pointing to a specific card id snapshot: 
 ![](screenshots/vmx14.png)
 
-In the vSphere client, for each potential ESXi host where the controller VM could get deployed, go to Configuration tab, Software section, Security Profile, Firewall, Properties... and enable "VM serial port connected over network" (not "VM serial port connected to vSPC"). If needed, you can click the Firewall button while standing on "VM serial port connected over network" and enable the access only for the IP of the execution server (at least according to the explanation on the dialog).
+In the vSphere client, for each potential ESXi host where the controller VM could get deployed, go to Configuration tab, Software section, Security Profile, Firewall, Properties... and enable "VM serial port connected over network" (not "VM serial port connected to vSPC"). If needed, you can click the Firewall button while standing on "VM serial port connected over network" and enable the access only for the IP of the execution server.
 ![](screenshots/esxi_serial.png)
 
 
