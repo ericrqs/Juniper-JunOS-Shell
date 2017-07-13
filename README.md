@@ -10,10 +10,13 @@ This networking shell provides connectivity and management capabilities such as 
 
 This repository is forked from Quali's official JunOS first generation shell.
 
-vMX is added to a blueprint by dragging a single app and drawing connectors to it. The added function connect_child_resources in the deployed app resource driver (Generic Juniper JunOS Driver Version3) will be called by Setup and to automatically add vMX VFP card apps to the reservation, deploy them, and rearrange the connectors so that blueprint devices with connectors to the vMX will instead be connected to ports under deployed cards.
+vMX is added to a blueprint by dragging a single app and drawing connectors to it. 
+
+The function connect_child_resources in the deployed app resource driver (Generic Juniper JunOS Driver Version3) will be called by Setup and to automatically add vMX VFP card apps to the reservation, deploy them, and rearrange the connectors so that blueprint devices with connectors to the vMX will instead be connected to ports under deployed cards.
 
 The JunOS driver is capable of autoloading the vMX as if it were a standard JunOS router.
 
+### Additions
 - Router and Firewall families changed to type ResourceType="Application" so model "Juniper JunOS Router" can be used for vMX and "Juniper JunOS Firewall" for vSRX
 - Added "Juniper JunOS Router" attributes that will be used during vMX deployment
   - Number of VFP Cards -- number of card apps to create
@@ -36,14 +39,14 @@ The JunOS driver is capable of autoloading the vMX as if it were a standard JunO
 - Function connect_child_resources for deploying the multi-VM vMX added to driver Generic Juniper JunOS Driver Version3
 
 
-## Installation
+### Installation
 
 Create an app named vMX to deploy the vMX controller (VCP). Set the target resource model to be Juniper JunOS Router. Fill the vMX-specific attributes and standard JunOS attributes as described above. This app will be dragged by users to the canvas.
 
 Create apps for the vMX cards (VFP). These will be automatically added to the canvas by the vMX resource driver during deployment. For each slot id, create a different image. The most efficient way is to use snapshots and linked clones. On the VFP image, power it on and log in as root (password "root" or blank). For each potential slot id (0, 1, 2, ...), create the file /var/jnx/card/local/slot and set the contents to be a single number, power off the VM, and take a snapshot. For each such snapshot, create a distinct CloudShell app using a common prefix (e.g. VFPXYZ-card0, VFPXYZ-card1, ...), and set "VFP Card App Name Prefix" on the user-facing vMX app to the prefix (e.g. "VFPXYZ").
 
 
-## Other notes
+### Other notes
 
 Only vSphere is supported for vMX. The driver uses pyvmomi for additional vSphere operations beyond the standard cloud provider. No need to install PowerCLI or anything else.
 
@@ -58,11 +61,11 @@ If a VFP VM has 10 vNICs, there will be 10 interfaces ge-x/0/0 through ge-x/0/9,
 
 
 
-### Connectors
+#### Connectors
 
 Connectors can be point-to-point or to VLAN services.
 
-#### Requested Source vNIC Name or Requested Target vNIC Name
+##### Requested Source vNIC Name or Requested Target vNIC Name
 
 Be sure to set the variable for the right end of the connector, especially when connecting two vMX to each other. 
 
@@ -72,7 +75,7 @@ Connectors can have the attribute set explicitly to a value like ge-1-0-5, where
 
 Connectors can also have one of the values "ge", "et", or "xe". This will automatically assign an interface of that speed. The speeds can be set per card in the VCP template ahead of time (before the cards are actually connected), or using semicolon-separated commands in the Extra Config Commands attribute. Example command: "set chassis fpc 0 pic 0 interface-type xe". The fpc number is the card number starting from 0 and the pic number should always be 0.
 
-
+#### vMX screenshots
 A blueprint containing a vMX app and connectors:
 ![](screenshots/vmx01.png)
 
