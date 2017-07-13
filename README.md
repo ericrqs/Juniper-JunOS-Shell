@@ -50,24 +50,21 @@ The JunOS driver is capable of autoloading the vMX as if it were a standard JunO
 ### Installation
 
 Create an app named vMX to deploy the vMX controller (VCP). Set the target resource model to be Juniper JunOS Router. Fill the vMX-specific attributes and standard JunOS attributes as described above. This app will be dragged by users to the canvas.
+![](screenshots/vmx_inputs.png)
 
-Create apps for the vMX cards (VFP). These will be automatically added to the canvas by the vMX resource driver during deployment. For each slot id, create a different image. The most efficient way is to use snapshots and linked clones. On the VFP image, power it on and log in as root (password "root" or blank). For each potential slot id (0, 1, 2, ...), create the file /var/jnx/card/local/slot and set the contents to be a single number, power off the VM, and take a snapshot. For each such snapshot, create a distinct CloudShell app using a common prefix (e.g. VFPXYZ-card0, VFPXYZ-card1, ...), and set "VFP Card App Name Prefix" on the user-facing vMX app to the prefix (e.g. "VFPXYZ").
+Create apps for the vMX cards (VFP). These will be automatically added to the canvas by the JunOS resource driver during Setup. For each slot id, create a different image. The most efficient way is to use snapshots and linked clones. On the VFP image, power it on and log in as root (password "root" or blank). For each potential slot id (0, 1, 2, ...), create the file /var/jnx/card/local/slot and set the contents to be a single number, power off the VM, and take a snapshot. For each such snapshot, create a distinct CloudShell app using a common prefix (e.g. VFPXYZ-card0, VFPXYZ-card1, ...), and set "VFP Card App Name Prefix" on the user-facing vMX app to the prefix (e.g. "VFPXYZ").
+![](screenshots/vmx_slot_id_snapshots.png)
 
-
-### Other notes
-
-Only vSphere is supported for vMX. The driver uses pyvmomi for additional vSphere operations beyond the standard cloud provider. No need to install PowerCLI or anything else.
-
-
-If the first NIC of the vMX controller template isn't already on the management network, connect a manual VLAN service representing the management VLAN to the vMX app with Requested Source/Target vNIC Name on the connector explicitly set to "1". 
-
+Defining a VFP app pointing to a specific card id snapshot: 
+![](screenshots/vmx14.png)
 
 In the vSphere client, for each potential ESXi host where the controller VM could get deployed, go to Configuration tab, Software section, Security Profile, Firewall, Properties... and enable "VM serial port connected over network" (not "VM serial port connected to vSPC"). If needed, you can click the Firewall button while standing on "VM serial port connected over network" and enable the access only for the IP of the execution server (at least according to the explanation on the dialog).
+![](screenshots/esxi_serial.png)
 
 
-If a VFP VM has 10 vNICs, there will be 10 interfaces ge-x/0/0 through ge-x/0/9, but only 7 of these interfaces will be usable. They will have MAC addresses from vNICs. The remaining 3 interfaces will have bogus MAC addresses and it is unknown whether they are usable for anything. Presumably this has something to do with the first vNICs being reserved for management interfaces, but only two management interfaces are mentioned in the docs. 
-
-
+### Usage
+A blueprint containing a vMX app and connectors:
+![](screenshots/vmx01.png)
 
 #### Connectors
 
@@ -83,10 +80,6 @@ Connectors can have the attribute set explicitly to a value like ge-1-0-5, where
 
 Connectors can also have one of the values "ge", "et", or "xe". This will automatically assign an interface of that speed. The speeds can be set per card in the VCP template ahead of time (before the cards are actually connected), or using semicolon-separated commands in the Extra Config Commands attribute. Example command: "set chassis fpc 0 pic 0 interface-type xe". The fpc number is the card number starting from 0 and the pic number should always be 0.
 
-#### vMX screenshots
-A blueprint containing a vMX app and connectors:
-![](screenshots/vmx01.png)
-
 Optional connector attributes - blank, ge-1-0-5, or ge
 ![](screenshots/vmx02.png)
 ![](screenshots/vmx03.png)
@@ -94,11 +87,12 @@ Optional connector attributes - blank, ge-1-0-5, or ge
 Connectors going to the vMX app are moved automatically to vFP VMs: 
 ![](screenshots/jvmx6.png)
 
-
 Internal network automatically created and connected to VCP and VFPs during deployment:
 ![](screenshots/vmx04.png)
 ![](screenshots/vmx05.png)
 
+
+#### Deployment process
 vMX boot progress tracked in the portal:
 ![](screenshots/vmx06.png)
 ![](screenshots/vmx07.png)
@@ -119,15 +113,19 @@ VFP ports connected to VLANs:
 After deployment, you can SSH to the vMX using the Address of the deployed vMX resource:
 ![](screenshots/vmx13.png)
 
-VFP snapshots with hard-coded snapshot ids:
-![](screenshots/vvmx_slot_id_snapshots.png)
-
-Defining a VFP app pointing to a specific card id snapshot: 
-![](screenshots/vmx14.png)
-
 Drawing and connecting a connector to a specific vMX port on a deployed VFP:
 ![](screenshots/jvmx2.png)
 ![](screenshots/jvmx3.png)
 
 ![](screenshots/jvmx5.png)
 
+
+### Notes
+
+Only vSphere is supported for vMX. The driver uses pyvmomi for additional vSphere operations beyond the standard cloud provider. No need to install PowerCLI or anything else.
+
+If the first NIC of the vMX controller template isn't already on the management network, connect a manual VLAN service representing the management VLAN to the vMX app with Requested Source/Target vNIC Name on the connector explicitly set to "1". 
+
+If a VFP VM has 10 vNICs, there will be 10 interfaces ge-x/0/0 through ge-x/0/9, but only 7 of these interfaces will be usable. They will have MAC addresses from vNICs. The remaining 3 interfaces will have bogus MAC addresses and it is unknown whether they are usable for anything. Presumably this has something to do with the first vNICs being reserved for management interfaces, but only two management interfaces are mentioned in the docs. 
+
+If you add a vMX to an existing sandbox, you can simply rerun Setup to deploy it. Alternatively you can run Deploy App, then on the deployed resource run the resource function connect_child_resources, then do Connect on all connectors. 
