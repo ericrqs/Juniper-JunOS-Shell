@@ -8,7 +8,15 @@ This networking shell provides connectivity and management capabilities such as 
 
 ## vMX deployment
 
-This repository is forked from Quali's official JunOS first generation shell.
+This is a modified version of the first generation JunOS shell that can be used with vMX virtual router on vSphere.
+
+It handles both deployment and use of the virtual router.
+
+The shell is selected as the deployment target of a vSphere app for the vMX controller (VCP). This is dragged into the blueprint canvas and connected with ordinary connectors. During Setup, the resource driver automatically deploys and connects additional vSphere apps for the vMX cards (VFP) and moves the connectors to individual VFP VMs. A connector can also be added after Setup, going directly to an interface under some VFP.
+
+VCP and VFP templates on vSphere must be provided.
+
+Point-to-point and VLAN service connections are fully supported. 
 
 vMX is added to a blueprint by dragging a single app and drawing connectors to it. 
 
