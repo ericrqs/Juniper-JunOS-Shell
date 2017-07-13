@@ -110,7 +110,7 @@ Automatically configuring user credentials and management IP:
 Polling for expected interfaces based on number of cards:
 ![](screenshots/vmx10.png)
 
-Autoloading ports under VFP deployed app resources:
+Autoloaded ports under VFP deployed app resources:
 ![](screenshots/vmx11.png)
 
 VFP ports connected to VLANs:
@@ -120,7 +120,7 @@ After deployment, you can SSH to the vMX using the Address of the deployed vMX r
 ![](screenshots/vmx13.png)
 
 VFP snapshots with hard-coded snapshot ids:
-![](screenshots/vmx slot id snapshots.png)
+![](screenshots/vvmx_slot_id_snapshots.png)
 
 Defining a VFP app pointing to a specific card id snapshot: 
 ![](screenshots/vmx14.png)
