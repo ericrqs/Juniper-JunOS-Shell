@@ -20,9 +20,9 @@ Point-to-point and VLAN service connections are fully supported.
 
 vMX is added to a blueprint by dragging a single app and drawing connectors to it. 
 
-The function connect_child_resources in the deployed app resource driver (Generic Juniper JunOS Driver Version3) will be called by Setup and to automatically add vMX VFP card apps to the reservation, deploy them, and rearrange the connectors so that blueprint devices with connectors to the vMX will instead be connected to ports under deployed cards.
+The function connect_child_resources in the deployed app resource driver (Generic Juniper JunOS Driver Version3) will be called by Setup. It automatically adds vMX VFP card apps to the reservation, deploys them, and rearranges the connectors so that blueprint devices with connectors to the vMX will instead be connected to deployed cards' port subresources, which are associated with VFP VM vNIC numbers through the Requested vNIC Name attribute.
 
-The JunOS driver is capable of autoloading the vMX as if it were a standard JunOS router.
+The JunOS driver is capable of autoloading the vMX as if it were a standard JunOS router -- except that the port subresources under the vMX are not usable for connectors. Connectors going to the vMX app will be moved to specific VFP port subresources, and future connectors should also be drawn to specific VFP port subresources. These connections are implemented using the standard vSphere cloud provider (VLAN service, dvPortgroup, dvSwitch).
 
 ### Additions
 - Router and Firewall families changed to type ResourceType="Application" so model "Juniper JunOS Router" can be used for vMX and "Juniper JunOS Firewall" for vSRX
